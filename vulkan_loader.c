@@ -6,7 +6,7 @@
 
 // Linking done at compile time, nothing to do
 bool vkenv_loadVulkanInstanceCreationFuncs() { return true; }
-void vkenv_loadVulkanAPI(VkInstance instance) { return true; }
+void vkenv_loadVulkanAPI(VkInstance instance) {}
 void vkenv_unloadVulkan() {}
 
 #else

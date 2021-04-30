@@ -29,7 +29,7 @@ void log_info(const char *tag, const char *format, va_list args_list)
 }
 #endif
 
-static vkenv_LogLevel max_log_level = LOG_INFO;
+static vkenv_LogLevel max_log_level = VKENV_LOG_ERROR;
 void vkenv_setLogLevel(vkenv_LogLevel log_level) { max_log_level = log_level; }
 
 void vkenv_log(vkenv_LogLevel log_level, const char *tag, const char *format, ...)
@@ -41,10 +41,10 @@ void vkenv_log(vkenv_LogLevel log_level, const char *tag, const char *format, ..
     va_start(args_list, format);
     switch (log_level)
     {
-    case LOG_ERROR:
+    case VKENV_LOG_ERROR:
       log_error(tag, format, args_list);
       break;
-    case LOG_INFO:
+    case VKENV_LOG_INFO:
       log_info(tag, format, args_list);
       break;
     default:

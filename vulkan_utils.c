@@ -167,6 +167,7 @@ bool createShaderModuleFromFile(VkDevice device, const char *shader_file_path, V
   return true;
 }
 
+#if defined(VKENV_USE_EMBEDDED_SHADERS)
 bool createShaderModuleFromEmbeddedShader(VkDevice device, const char *shader_file_path, VkShaderModule *shader_module)
 {
   uint32_t shader_code_size = 0;
@@ -189,6 +190,7 @@ bool createShaderModuleFromEmbeddedShader(VkDevice device, const char *shader_fi
   }
   return true;
 }
+#endif
 
 bool vkenv_createShaderModule(VkDevice device, const char *shader_file_path, VkShaderModule *shader_module)
 {
