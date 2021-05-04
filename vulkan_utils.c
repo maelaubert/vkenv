@@ -274,12 +274,13 @@ bool vkenv_allocateMemory(VkDeviceMemory *memory_ptr, vkenv_Device device, VkDev
   if (vkres != VK_SUCCESS)
   {
     logError(LOG_TAG, "Failed to allocate memory (vkAllocateMemory: %s)", vkenv_getVkResultString(vkres));
+    return false;
   }
-  return vkres;
+  return true;
 }
 
-bool findValidMemoryType(VkPhysicalDevice physical_device, VkMemoryRequirements memory_requirements, VkMemoryPropertyFlags memory_properties,
-                         uint32_t *memory_type_idx)
+bool vkenv_findValidMemoryType(VkPhysicalDevice physical_device, VkMemoryRequirements memory_requirements, VkMemoryPropertyFlags memory_properties,
+                               uint32_t *memory_type_idx)
 {
   VkPhysicalDeviceMemoryProperties available_memory_properties;
   vkGetPhysicalDeviceMemoryProperties(physical_device, &available_memory_properties);
@@ -335,8 +336,9 @@ bool vkenv_createImage(VkImage *image_ptr, vkenv_Device device, VkImageCreateFla
   if (vkres != VK_SUCCESS)
   {
     logError(LOG_TAG, "Failed to create image (vkCreateImage: %s)", vkenv_getVkResultString(vkres));
+    return false;
   }
-  return vkres;
+  return true;
 }
 
 bool vkenv_createImageView(VkImageView *image_view_ptr, vkenv_Device device, VkImageViewCreateFlags flags, VkImage image, VkImageViewType view_type,
@@ -355,8 +357,9 @@ bool vkenv_createImageView(VkImageView *image_view_ptr, vkenv_Device device, VkI
   if (vkres != VK_SUCCESS)
   {
     logError(LOG_TAG, "Failed to create the image view (vkCreateImageView: %s)", vkenv_getVkResultString(vkres));
+    return false;
   }
-  return vkres;
+  return true;
 }
 
 bool vkenv_bindImageMemory(vkenv_Device device, VkImage image, VkDeviceMemory memory, VkDeviceSize offset)
@@ -365,8 +368,9 @@ bool vkenv_bindImageMemory(vkenv_Device device, VkImage image, VkDeviceMemory me
   if (vkres != VK_SUCCESS)
   {
     logError(LOG_TAG, "Failed to bind image memory (vkBindImageMemory: %s)", vkenv_getVkResultString(vkres));
+    return false;
   }
-  return vkres;
+  return true;
 }
 
 VkImageMemoryBarrier vkenv_genImageMemoryBarrier(VkImage image, VkAccessFlags src_mask, VkAccessFlags dst_mask, VkImageLayout old_layout,
@@ -408,7 +412,7 @@ bool vkenv_createBuffer(VkBuffer *buffer_ptr, vkenv_Device device, VkBufferCreat
     logError(LOG_TAG, "Failed to create buffer (vkCreateBuffer: %s)", vkenv_getVkResultString(vkres));
     return false;
   }
-  return vkres;
+  return true;
 }
 
 bool vkenv_bindBufferMemory(vkenv_Device device, VkBuffer buffer, VkDeviceMemory memory, VkDeviceSize offset)
@@ -417,8 +421,9 @@ bool vkenv_bindBufferMemory(vkenv_Device device, VkBuffer buffer, VkDeviceMemory
   if (vkres != VK_SUCCESS)
   {
     logError(LOG_TAG, "Failed to bind buffer memory (vkBindBufferMemory: %s)", vkenv_getVkResultString(vkres));
+    return false;
   }
-  return vkres;
+  return true;
 }
 
 VkBufferMemoryBarrier vkenv_genBufferMemoryBarrier(VkBuffer buffer, VkAccessFlags src_mask, VkAccessFlags dst_mask, uint32_t src_queue_family_idx,
@@ -482,6 +487,7 @@ const char *vkenv_getVkResultString(VkResult result)
   case VK_ERROR_UNKNOWN:
     return "VK_ERROR_UNKNOWN";
   default:
+    logError(LOG_TAG, "#Unexpected VkResult value: %d#", result);
     return "#Unexpected VkResult value#";
   }
 }

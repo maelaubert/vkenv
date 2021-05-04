@@ -53,8 +53,8 @@ bool vkenv_createComputePipeline(VkDevice device, VkShaderModule shader_module, 
 ////////////////////////////////////////////////////////////////////////
 
 bool vkenv_allocateMemory(VkDeviceMemory *memory_ptr, vkenv_Device device, VkDeviceSize size, uint32_t memory_type_idx);
-bool findValidMemoryType(VkPhysicalDevice physical_device, VkMemoryRequirements memory_requirements, VkMemoryPropertyFlags memory_properties,
-                         uint32_t *memory_type_idx);
+bool vkenv_findValidMemoryType(VkPhysicalDevice physical_device, VkMemoryRequirements memory_requirements, VkMemoryPropertyFlags memory_properties,
+                               uint32_t *memory_type_idx);
 
 ////////////////////////////////////////////////////////////////////////
 // IMAGES
