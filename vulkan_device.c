@@ -1,5 +1,5 @@
-#include "logger.h"
 #include "vulkan_device.h"
+#include "logger.h"
 #include "vulkan_utils.h"
 
 #include <assert.h>
@@ -49,11 +49,18 @@ bool vkenv_createDevice(vkenv_Device *device_ptr, vkenv_DeviceConfig *config_ptr
   assert(*device_ptr == NULL); // Provided device should be NULL to avoid overwriting data
   assert(config_ptr != NULL);
 
+  assert(config_ptr->nb_general_queues > 0); // We must always have at least one usable queue
+
   // Allocate vkenv_Device
   *device_ptr = (vkenv_Device)malloc(sizeof(struct vkenv_Device_T));
   vkenv_Device device = *device_ptr;
   // Reset everything in the struct to 0 or NULL (important to only destroy allocated objects if there an issue)
   memset(device, 0, sizeof(struct vkenv_Device_T));
+
+  // Reserve VkQueue arrays
+  device->general_queues = (VkQueue *)malloc(sizeof(VkQueue) * config_ptr->nb_general_queues);
+  device->async_compute_queues = (VkQueue *)malloc(sizeof(VkQueue) * config_ptr->nb_async_compute_queues);
+  device->async_transfer_queues = (VkQueue *)malloc(sizeof(VkQueue) * config_ptr->nb_async_transfer_queues);
 
   if (getPhysicalDevice(device, config_ptr) && createLogicalDevice(device, config_ptr))
   {
@@ -76,6 +83,12 @@ void vkenv_destroyDevice(vkenv_Device *device_ptr)
 
   // Destroy logical device
   VK_NULL_SAFE_DELETE((*device_ptr)->device, vkDestroyDevice((*device_ptr)->device, NULL));
+
+  // Free queue arrays
+  free((*device_ptr)->general_queues);
+  free((*device_ptr)->async_compute_queues);
+  free((*device_ptr)->async_transfer_queues);
+
   // Releave vkenv_Device memory
   free(*device_ptr);
   *device_ptr = NULL;
@@ -187,8 +200,15 @@ bool createInstance(vkenv_InstanceConfig *config)
   return true;
 }
 
-bool findQueueFamilyIndex(VkPhysicalDevice physical_device, uint32_t *queue_family_idx, uint32_t present_flagbits, uint32_t absent_flagbits)
+bool findQueueFamilyIndex(VkPhysicalDevice physical_device, uint32_t *queue_family_idx, uint32_t present_flagbits, uint32_t absent_flagbits,
+                          const uint32_t req_queue_cnt)
 {
+  // If no queue will be used there's no need to continue
+  if (req_queue_cnt == 0)
+  {
+    return false;
+  }
+
   bool queue_idx_found = false;
   // Request queue families info
   uint32_t queue_family_count = 0;
@@ -215,7 +235,7 @@ bool findQueueFamilyIndex(VkPhysicalDevice physical_device, uint32_t *queue_fami
         break;
       }
     }
-    if (conditions_met)
+    if (conditions_met && queue_families[i].queueCount >= req_queue_cnt) // also check that the desired number of queue can be used with this queue family
     {
       *queue_family_idx = i;
       queue_idx_found = true;
@@ -226,7 +246,8 @@ bool findQueueFamilyIndex(VkPhysicalDevice physical_device, uint32_t *queue_fami
   return queue_idx_found;
 }
 
-float getPhysicalDeviceCapabilityScore(VkPhysicalDevice device, uint32_t required_device_extension_count, const char **required_device_extensions)
+float getPhysicalDeviceCapabilityScore(VkPhysicalDevice device, uint32_t required_device_extension_count, const char **required_device_extensions,
+                                       const uint32_t req_general_queue_cnt, const uint32_t req_compute_queue_cnt, const uint32_t req_transfer_queue_cnt)
 {
   // Need present if GPU_DEBUG and support
   // GPU score = queue_types_multiplier * heap_size_multiplier
@@ -256,10 +277,12 @@ float getPhysicalDeviceCapabilityScore(VkPhysicalDevice device, uint32_t require
 
   // Check queue family types availability
   uint32_t general_queue_family_idx, tmp_queue_idx = 0;
-  bool general_queue_available =
-      findQueueFamilyIndex(device, &general_queue_family_idx, VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT, 0);
-  bool compute_queue_available = findQueueFamilyIndex(device, &tmp_queue_idx, VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT, VK_QUEUE_GRAPHICS_BIT);
-  bool transfer_queue_available = findQueueFamilyIndex(device, &tmp_queue_idx, VK_QUEUE_TRANSFER_BIT, VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT);
+  bool general_queue_available = findQueueFamilyIndex(device, &general_queue_family_idx,
+                                                      VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT, 0, req_general_queue_cnt);
+  bool compute_queue_available =
+      findQueueFamilyIndex(device, &tmp_queue_idx, VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT, VK_QUEUE_GRAPHICS_BIT, req_compute_queue_cnt);
+  bool transfer_queue_available =
+      findQueueFamilyIndex(device, &tmp_queue_idx, VK_QUEUE_TRANSFER_BIT, VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT, req_transfer_queue_cnt);
   // For the multiplier, the general queue is mandatory, all other async queue add 1.0 to the multiplier
   if (general_queue_available)
   {
@@ -268,7 +291,7 @@ float getPhysicalDeviceCapabilityScore(VkPhysicalDevice device, uint32_t require
   }
   else
   {
-    logInfo(LOG_TAG, "\t\t -> No general purpose queue available");
+    logInfo(LOG_TAG, "\t\t -> No general purpose queue family available or queue count requirement not met");
     queue_types_multiplier = 0.f;
   }
 
@@ -344,7 +367,8 @@ bool getPhysicalDevice(vkenv_Device device, vkenv_DeviceConfig *config)
       vkGetPhysicalDeviceProperties(devices[i], &candidate_props);
       logInfo(LOG_TAG, "\t Device %d (name: %s, device ID: %d,vendor ID: %d)", i, candidate_props.deviceName, candidate_props.deviceID,
               candidate_props.vendorID);
-      float score = getPhysicalDeviceCapabilityScore(devices[i], config->device_extension_count, config->device_extensions);
+      float score = getPhysicalDeviceCapabilityScore(devices[i], config->device_extension_count, config->device_extensions, config->nb_general_queues,
+                                                     config->nb_async_compute_queues, config->nb_async_transfer_queues);
       if (score > best_gpu_score)
       {
         best_gpu_score = score;
@@ -383,14 +407,19 @@ bool getPhysicalDevice(vkenv_Device device, vkenv_DeviceConfig *config)
 
       if (requested_extensions_supported == false)
       {
-        logInfo(LOG_TAG, "GPU selection is invalid. Missing required device extension(s):");
+        logError(LOG_TAG, "GPU selection is invalid. Missing required device extension(s):");
         for (uint32_t i = 0; i < config->device_extension_count; i++)
         {
           if (required_extensions_mask[i] == false)
           {
-            logInfo(LOG_TAG, "\t -> %s", config->device_extensions[i]);
+            logError(LOG_TAG, "\t -> %s", config->device_extensions[i]);
           }
         }
+      }
+      else if (!findQueueFamilyIndex(device->physical_device, &device->general_queues_family_idx,
+                                     VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT, 0, config->nb_general_queues))
+      {
+        logError(LOG_TAG, "GPU selection is invalid. No general purpose queue family available or queue count requirement not met.");
       }
       else
       {
@@ -409,12 +438,13 @@ bool getPhysicalDevice(vkenv_Device device, vkenv_DeviceConfig *config)
     vkGetPhysicalDeviceProperties(device->physical_device, &(device->physical_device_props));
     vkGetPhysicalDeviceMemoryProperties(device->physical_device, &(device->physical_device_memory_props));
     // Find the device queue family indices (we're looking for general purpose, async compute and async transfer queues)
-    findQueueFamilyIndex(device->physical_device, &device->general_queue_family_idx, VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT,
-                         0);
-    device->async_compute_available = findQueueFamilyIndex(device->physical_device, &device->async_compute_queue_family_idx,
-                                                           VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT, VK_QUEUE_GRAPHICS_BIT);
-    device->async_transfer_available = findQueueFamilyIndex(device->physical_device, &device->async_transfer_queue_family_idx, VK_QUEUE_TRANSFER_BIT,
-                                                            VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT);
+    findQueueFamilyIndex(device->physical_device, &device->general_queues_family_idx, VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT,
+                         0, config->nb_general_queues);
+    device->async_compute_available =
+        findQueueFamilyIndex(device->physical_device, &device->async_compute_queues_family_idx, VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT,
+                             VK_QUEUE_GRAPHICS_BIT, config->nb_async_compute_queues);
+    device->async_transfer_available = findQueueFamilyIndex(device->physical_device, &device->async_transfer_queues_family_idx, VK_QUEUE_TRANSFER_BIT,
+                                                            VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT, config->nb_async_transfer_queues);
 
     // Print out debug informations about selected device
     logInfo(LOG_TAG, "Selected GPU: %s [device ID=%d][vendor ID=%d]", device->physical_device_props.deviceName, device->physical_device_props.deviceID,
@@ -430,16 +460,21 @@ bool createLogicalDevice(vkenv_Device device, vkenv_DeviceConfig *config)
 {
   bool creation_success = true;
 
+  // Update queue count in the device structure
+  device->general_queue_cnt = config->nb_general_queues;
+  device->async_compute_queue_cnt = (device->async_compute_available ? config->nb_async_compute_queues : 0);
+  device->async_transfer_queue_cnt = (device->async_transfer_available ? config->nb_async_transfer_queues : 0);
+
   // Create a Vulkan device giving access to all available queue families found
-  uint32_t queue_count = 1 + (device->async_compute_available ? 1 : 0) + (device->async_transfer_available ? 1 : 0);
-  VkDeviceQueueCreateInfo *queue_create_infos = (VkDeviceQueueCreateInfo *)malloc(sizeof(VkDeviceQueueCreateInfo) * queue_count);
+  uint32_t queue_create_info_count = 1 + (device->async_compute_available ? 1 : 0) + (device->async_transfer_available ? 1 : 0);
+  VkDeviceQueueCreateInfo *queue_create_infos = (VkDeviceQueueCreateInfo *)malloc(sizeof(VkDeviceQueueCreateInfo) * queue_create_info_count);
 
   float queue_priority = 1.f;
   queue_create_infos[0] = (VkDeviceQueueCreateInfo){.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
                                                     .pNext = NULL,
                                                     .flags = 0,
-                                                    .queueFamilyIndex = device->general_queue_family_idx,
-                                                    .queueCount = 1,
+                                                    .queueFamilyIndex = device->general_queues_family_idx,
+                                                    .queueCount = device->general_queue_cnt,
                                                     .pQueuePriorities = &queue_priority};
   int cnt = 1;
   if (device->async_compute_available)
@@ -447,8 +482,8 @@ bool createLogicalDevice(vkenv_Device device, vkenv_DeviceConfig *config)
     queue_create_infos[cnt] = (VkDeviceQueueCreateInfo){.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
                                                         .pNext = NULL,
                                                         .flags = 0,
-                                                        .queueFamilyIndex = device->async_compute_queue_family_idx,
-                                                        .queueCount = 1,
+                                                        .queueFamilyIndex = device->async_compute_queues_family_idx,
+                                                        .queueCount = device->async_compute_queue_cnt,
                                                         .pQueuePriorities = &queue_priority};
     cnt++;
   }
@@ -457,8 +492,8 @@ bool createLogicalDevice(vkenv_Device device, vkenv_DeviceConfig *config)
     queue_create_infos[cnt] = (VkDeviceQueueCreateInfo){.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
                                                         .pNext = NULL,
                                                         .flags = 0,
-                                                        .queueFamilyIndex = device->async_transfer_queue_family_idx,
-                                                        .queueCount = 1,
+                                                        .queueFamilyIndex = device->async_transfer_queues_family_idx,
+                                                        .queueCount = device->async_transfer_queue_cnt,
                                                         .pQueuePriorities = &queue_priority};
     cnt++;
   }
@@ -466,7 +501,7 @@ bool createLogicalDevice(vkenv_Device device, vkenv_DeviceConfig *config)
   VkDeviceCreateInfo device_create_info = {.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
                                            .pNext = NULL,
                                            .flags = 0,
-                                           .queueCreateInfoCount = queue_count,
+                                           .queueCreateInfoCount = queue_create_info_count,
                                            .pQueueCreateInfos = queue_create_infos,
                                            .enabledLayerCount = 0, // device layers are deprecated
                                            .ppEnabledLayerNames = NULL,
@@ -482,15 +517,28 @@ bool createLogicalDevice(vkenv_Device device, vkenv_DeviceConfig *config)
   }
   else
   {
-    // Retrieve queues from device
-    vkGetDeviceQueue(device->device, device->general_queue_family_idx, 0, &device->general_queue);
+    // Retrieve general queues
+    for (uint32_t i = 0; i < device->general_queue_cnt; i++)
+    {
+      vkGetDeviceQueue(device->device, device->general_queues_family_idx, i, &device->general_queues[i]);
+    }
+
+    // Retrieve async compute queues
     if (device->async_compute_available)
     {
-      vkGetDeviceQueue(device->device, device->async_compute_queue_family_idx, 0, &device->async_compute_queue);
+      for (uint32_t i = 0; i < device->async_compute_queue_cnt; i++)
+      {
+        vkGetDeviceQueue(device->device, device->async_compute_queues_family_idx, i, &device->async_compute_queues[i]);
+      }
     }
+
+    // Retrieve async transfer queues
     if (device->async_transfer_available)
     {
-      vkGetDeviceQueue(device->device, device->async_transfer_queue_family_idx, 0, &device->async_transfer_queue);
+      for (uint32_t i = 0; i < device->async_transfer_queue_cnt; i++)
+      {
+        vkGetDeviceQueue(device->device, device->async_transfer_queues_family_idx, i, &device->async_transfer_queues[i]);
+      }
     }
   }
   free(queue_create_infos);

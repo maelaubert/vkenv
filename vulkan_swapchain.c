@@ -66,7 +66,7 @@ void vkenv_destroySwapchain(vkenv_Device device, vkenv_Swapchain *swapchain_ptr)
 bool checkDeviceSwapchainSupport(vkenv_Device device, VkSurfaceKHR surface)
 {
   VkBool32 surface_support = 0;
-  vkGetPhysicalDeviceSurfaceSupportKHR(device->physical_device, device->general_queue_family_idx, surface, &surface_support);
+  vkGetPhysicalDeviceSurfaceSupportKHR(device->physical_device, device->general_queues_family_idx, surface, &surface_support);
   if (surface_support == 0)
   {
     logError(LOG_TAG, "Physical device doesn't support acquired surface");

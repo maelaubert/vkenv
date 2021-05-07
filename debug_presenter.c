@@ -62,7 +62,7 @@ bool createCommandPool(vkenv_Device device, vkenv_DebugPresenter debug_presenter
 {
   // Acquire graphics command pool to run GPU commands
   VkCommandPoolCreateInfo command_pool_create_info = {
-      .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, .pNext = NULL, .flags = 0, .queueFamilyIndex = device->general_queue_family_idx};
+      .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, .pNext = NULL, .flags = 0, .queueFamilyIndex = device->general_queues_family_idx};
 
   VkResult create_pool_res = vkCreateCommandPool(device->device, &command_pool_create_info, NULL, &debug_presenter->command_pool);
   if (create_pool_res != VK_SUCCESS)
@@ -114,7 +114,7 @@ bool forceSwapchainImagesPresentableState(vkenv_Device device, vkenv_DebugPresen
         .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1}};
     vkCmdPipelineBarrier(cmd_buf, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0, 0, NULL, 0, NULL, 1, &image_barrier);
   }
-  if (!vkenv_endInstantCommandBuffer(device->device, device->general_queue, debug_presenter->command_pool, cmd_buf))
+  if (!vkenv_endInstantCommandBuffer(device->device, device->general_queues[0], debug_presenter->command_pool, cmd_buf))
   {
     logError(LOG_TAG, "Failed to submit the layout switch command buffer.");
     return false;
@@ -176,7 +176,7 @@ bool vkenv_presentDebugFrame(vkenv_Device device, vkenv_DebugPresenter debug_pre
                                    .pSwapchains = &debug_presenter->swapchain->swapchain,
                                    .pImageIndices = &image_idx,
                                    .pResults = NULL};
-  result = vkQueuePresentKHR(device->general_queue, &present_info);
+  result = vkQueuePresentKHR(device->general_queues[0], &present_info);
   if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
   {
     if (!recreateSwapchain(device, debug_presenter))

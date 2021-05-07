@@ -11,16 +11,19 @@ typedef struct vkenv_Device_T
   VkPhysicalDeviceProperties physical_device_props;
   VkPhysicalDeviceMemoryProperties physical_device_memory_props;
   // General purpose queue
-  VkQueue general_queue;
-  uint32_t general_queue_family_idx;
+  VkQueue *general_queues;
+  uint32_t general_queue_cnt;
+  uint32_t general_queues_family_idx;
   // Asynchronous compute queue
   bool async_compute_available;
-  VkQueue async_compute_queue;
-  uint32_t async_compute_queue_family_idx;
+  VkQueue *async_compute_queues;
+  uint32_t async_compute_queue_cnt;
+  uint32_t async_compute_queues_family_idx;
   // Asynchronous transfer queue
   bool async_transfer_available;
-  VkQueue async_transfer_queue;
-  uint32_t async_transfer_queue_family_idx;
+  VkQueue *async_transfer_queues;
+  uint32_t async_transfer_queue_cnt;
+  uint32_t async_transfer_queues_family_idx;
 } * vkenv_Device;
 
 typedef struct
@@ -43,6 +46,13 @@ typedef struct
   // Vulkan device requirements
   uint32_t device_extension_count;
   const char **device_extensions;
+  // Queue configuration
+  // If the device cannot provide the number of general queue the device creation will fail
+  uint32_t nb_general_queues;
+  // If the device cannot provide the number of async queues they will be tagged as unavailable
+  uint32_t nb_async_compute_queues;
+  uint32_t nb_async_transfer_queues;
+
   // GPU selection config
   // If target_device_idx<0, the GPU with best performances is chosen automatically
   int32_t target_device_idx;
