@@ -141,7 +141,7 @@ bool getRequestedExtensionsSupported(uint32_t platform_extension_count, VkExtens
       }
     }
   }
-  return nb_found == requested_extension_count;
+  return nb_found >= requested_extension_count;
 }
 
 bool createInstance(vkenv_InstanceConfig *config)
