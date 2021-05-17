@@ -468,14 +468,18 @@ bool createLogicalDevice(vkenv_Device device, vkenv_DeviceConfig *config)
   // Create a Vulkan device giving access to all available queue families found
   uint32_t queue_create_info_count = 1 + (device->async_compute_available ? 1 : 0) + (device->async_transfer_available ? 1 : 0);
   VkDeviceQueueCreateInfo *queue_create_infos = (VkDeviceQueueCreateInfo *)malloc(sizeof(VkDeviceQueueCreateInfo) * queue_create_info_count);
+  float *queue_priorities = (float *)malloc(sizeof(float) * queue_create_info_count);
+  for (uint32_t i = 0; i < queue_create_info_count; i++)
+  {
+    queue_priorities[i] = 1.f;
+  }
 
-  float queue_priority = 1.f;
   queue_create_infos[0] = (VkDeviceQueueCreateInfo){.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
                                                     .pNext = NULL,
                                                     .flags = 0,
                                                     .queueFamilyIndex = device->general_queues_family_idx,
                                                     .queueCount = device->general_queue_cnt,
-                                                    .pQueuePriorities = &queue_priority};
+                                                    .pQueuePriorities = queue_priorities};
   int cnt = 1;
   if (device->async_compute_available)
   {
@@ -484,7 +488,7 @@ bool createLogicalDevice(vkenv_Device device, vkenv_DeviceConfig *config)
                                                         .flags = 0,
                                                         .queueFamilyIndex = device->async_compute_queues_family_idx,
                                                         .queueCount = device->async_compute_queue_cnt,
-                                                        .pQueuePriorities = &queue_priority};
+                                                        .pQueuePriorities = queue_priorities};
     cnt++;
   }
   if (device->async_transfer_available)
@@ -494,7 +498,7 @@ bool createLogicalDevice(vkenv_Device device, vkenv_DeviceConfig *config)
                                                         .flags = 0,
                                                         .queueFamilyIndex = device->async_transfer_queues_family_idx,
                                                         .queueCount = device->async_transfer_queue_cnt,
-                                                        .pQueuePriorities = &queue_priority};
+                                                        .pQueuePriorities = queue_priorities};
     cnt++;
   }
 
@@ -542,6 +546,7 @@ bool createLogicalDevice(vkenv_Device device, vkenv_DeviceConfig *config)
     }
   }
   free(queue_create_infos);
+  free(queue_priorities);
 
   return creation_success;
 }
