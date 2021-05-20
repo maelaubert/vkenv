@@ -13,15 +13,37 @@ void vkenv_unloadVulkan() {}
 // Only if dynamic Vulkan loading requested at compilation
 #include "logger.h"
 #include <assert.h>
+
+#ifdef _WIN32
+#include <Windows.h>
+#else 
 #include <dlfcn.h>
+#endif
 
 static char LOG_TAG[] = "VulkanLoader";
 
+#ifdef _WIN32
+static HMODULE vulkan_lib_handle;
+#else
 static void *vulkan_lib_handle = NULL;
+#endif
+
 bool loadVkGetInstanceProcAddr()
 {
   assert(vulkan_lib_handle == NULL);
 
+#ifdef _WIN32
+  vulkan_lib_handle = LoadLibrary("vulkan-1.dll");
+  if(vulkan_lib_handle==NULL) {
+    logError(LOG_TAG, "Failed to open vulkan-1.dll");
+    return false;
+  }
+  vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)GetProcAddress(vulkan_lib_handle, "vkGetInstanceProcAddr");
+  if(vkGetInstanceProcAddr==NULL) {
+    logError(LOG_TAG, "Failed to load Vulkan symbol vkGetInstanceProcAddr");
+    return false;
+  }
+#else
   // Open Vulkan dynamic library
   vulkan_lib_handle = dlopen("libvulkan.so", RTLD_NOW);
   if (vulkan_lib_handle == NULL)
@@ -31,15 +53,15 @@ bool loadVkGetInstanceProcAddr()
   }
 
   dlerror(); // Clear error code
-  bool res = true;
   vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)dlsym(vulkan_lib_handle, "vkGetInstanceProcAddr");
   const char *dlsym_error = dlerror();
   if (dlsym_error)
   {
     logError(LOG_TAG, "Failed to load Vulkan symbol vkGetInstanceProcAddr (%s)", dlsym_error);
-    res = false;
+    return false;
   }
-  return res;
+#endif
+  return true;
 }
 
 bool vkenv_loadVulkanInstanceCreationFuncs()
@@ -68,7 +90,11 @@ void vkenv_unloadVulkan()
   // The only resource to release is the opened .so/.dll file
   if (vulkan_lib_handle != NULL)
   {
+#ifdef _WIN32
+    FreeLibrary(vulkan_lib_handle);
+#else
     dlclose(vulkan_lib_handle);
+#endif
     vulkan_lib_handle = NULL;
   }
 }

@@ -136,7 +136,7 @@ bool createShaderModuleFromAsset(VkDevice device, const char *shader_asset_file_
 bool createShaderModuleFromFile(VkDevice device, const char *shader_file_path, VkShaderModule *shader_module)
 {
   // Read shader code from file
-  FILE *f_shader_file = fopen(shader_file_path, "r");
+  FILE *f_shader_file = fopen(shader_file_path, "rb");
   if (f_shader_file == NULL)
   {
     logError(LOG_TAG, "Failed to open shader file %s", shader_file_path);
