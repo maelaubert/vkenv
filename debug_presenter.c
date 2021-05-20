@@ -1,6 +1,6 @@
 #include "debug_presenter.h"
 #include "logger.h"
-#include "mini_window.h"
+#include "vulkan_surface.h"
 #include "vulkan_utils.h"
 #include <stdlib.h>
 #include <string.h>
@@ -9,7 +9,6 @@ static const char LOG_TAG[] = "DebugPresenter";
 
 typedef struct vkenv_DebugPresenter_T
 {
-  vkenv_MiniWindow mini_window;
   uint32_t target_width;
   uint32_t target_height;
   VkSurfaceKHR surface;
@@ -23,7 +22,7 @@ bool createSemaphores(vkenv_Device device, vkenv_DebugPresenter debug_presenter)
 bool forceSwapchainImagesPresentableState(vkenv_Device device, vkenv_DebugPresenter debug_presenter);
 bool recreateSwapchain(vkenv_Device device, vkenv_DebugPresenter debug_presenter);
 
-bool vkenv_createDebugPresenter(vkenv_Device device, vkenv_DebugPresenter *debug_presenter_ptr, const char *window_title)
+bool vkenv_createDebugPresenter(vkenv_Device device, vkenv_DebugPresenter *debug_presenter_ptr, vkenv_ExternalWindowInfo *ext_window_info_ptr)
 {
   if (debug_presenter_ptr == NULL)
   {
@@ -36,12 +35,9 @@ bool vkenv_createDebugPresenter(vkenv_Device device, vkenv_DebugPresenter *debug
 
   debug_presenter->target_width = 300;
   debug_presenter->target_height = 100;
-  vkenv_MiniWindowConfig window_config = {
-      .name = window_title, .width = debug_presenter->target_width, .height = debug_presenter->target_height, .fullscreen = false};
   vkenv_SwapchainPreferences swapchain_config = {.width = debug_presenter->target_width, .height = debug_presenter->target_height};
 
-  if (vkenv_createMiniWindow(&debug_presenter->mini_window, &window_config) &&
-      vkenv_getMiniWindowSurface(debug_presenter->mini_window, vkenv_getInstance(), &debug_presenter->surface) &&
+  if (vkenv_createSurface(&debug_presenter->surface, ext_window_info_ptr) &&
       vkenv_createSwapchain(device, &debug_presenter->swapchain, debug_presenter->surface, &swapchain_config) &&
       createCommandPool(device, debug_presenter) && createSemaphores(device, debug_presenter) &&
       forceSwapchainImagesPresentableState(device, debug_presenter))
@@ -142,12 +138,6 @@ bool recreateSwapchain(vkenv_Device device, vkenv_DebugPresenter debug_presenter
 
 bool vkenv_presentDebugFrame(vkenv_Device device, vkenv_DebugPresenter debug_presenter)
 {
-  if (vkenv_checkMiniWindowDestroyedEvent(debug_presenter->mini_window))
-  {
-    logInfo(LOG_TAG, "Window close event detected");
-    return false;
-  }
-
   // Acquire image
   uint32_t image_idx;
   VkResult result = vkAcquireNextImageKHR(device->device, debug_presenter->swapchain->swapchain, UINT64_MAX, debug_presenter->image_available_semaphore,
@@ -226,12 +216,6 @@ void vkenv_destroyDebugPresenter(vkenv_Device device, vkenv_DebugPresenter *debu
 
   // Destroy surface
   VK_NULL_SAFE_DELETE(debug_presenter->surface, vkDestroySurfaceKHR(vkenv_getInstance(), debug_presenter->surface, NULL));
-
-  // Destroy window system interface
-  if (debug_presenter->mini_window != NULL)
-  {
-    vkenv_destroyMiniWindow(&debug_presenter->mini_window);
-  }
 
   free(*debug_presenter_ptr);
   *debug_presenter_ptr = NULL;
