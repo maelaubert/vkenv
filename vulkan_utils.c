@@ -85,7 +85,7 @@ bool vkenv_endInstantCommandBuffer(VkDevice device, VkQueue queue, VkCommandPool
 
 #if defined(ANDROID) || defined(__ANDROID__)
 bool is_asset_access_ok = false;
-AAssetManager *asset_manager = nullptr;
+AAssetManager *asset_manager = NULL;
 void vkenv_setupAndroidAssetsFileAccess(AAssetManager *android_asset_manager)
 {
   asset_manager = android_asset_manager;
@@ -484,8 +484,10 @@ const char *vkenv_getVkResultString(VkResult result)
     return "VK_ERROR_FORMAT_NOT_SUPPORTED";
   case VK_ERROR_FRAGMENTED_POOL:
     return "VK_ERROR_FRAGMENTED_POOL";
+#if !defined(ANDROID) && !defined(__ANDROID__)
   case VK_ERROR_UNKNOWN:
-    return "VK_ERROR_UNKNOWN";
+   return "VK_ERROR_UNKNOWN";
+#endif
   default:
     logError(LOG_TAG, "#Unexpected VkResult value: %d#", result);
     return "#Unexpected VkResult value#";

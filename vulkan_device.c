@@ -277,10 +277,9 @@ float getPhysicalDeviceCapabilityScore(VkPhysicalDevice device, uint32_t require
 
   // Check queue family types availability
   uint32_t general_queue_family_idx, tmp_queue_idx = 0;
-  bool general_queue_available = findQueueFamilyIndex(device, &general_queue_family_idx,
-                                                      VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT, 0, req_general_queue_cnt);
-  bool compute_queue_available =
-      findQueueFamilyIndex(device, &tmp_queue_idx, VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT, VK_QUEUE_GRAPHICS_BIT, req_compute_queue_cnt);
+  bool general_queue_available =
+      findQueueFamilyIndex(device, &general_queue_family_idx, VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT, 0, req_general_queue_cnt);
+  bool compute_queue_available = findQueueFamilyIndex(device, &tmp_queue_idx, VK_QUEUE_COMPUTE_BIT, VK_QUEUE_GRAPHICS_BIT, req_compute_queue_cnt);
   bool transfer_queue_available =
       findQueueFamilyIndex(device, &tmp_queue_idx, VK_QUEUE_TRANSFER_BIT, VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT, req_transfer_queue_cnt);
   // For the multiplier, the general queue is mandatory, all other async queue add 1.0 to the multiplier
@@ -416,8 +415,8 @@ bool getPhysicalDevice(vkenv_Device device, vkenv_DeviceConfig *config)
           }
         }
       }
-      else if (!findQueueFamilyIndex(device->physical_device, &device->general_queues_family_idx,
-                                     VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT, 0, config->nb_general_queues))
+      else if (!findQueueFamilyIndex(device->physical_device, &device->general_queues_family_idx, VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT, 0,
+                                     config->nb_general_queues))
       {
         logError(LOG_TAG, "GPU selection is invalid. No general purpose queue family available or queue count requirement not met.");
       }
@@ -438,11 +437,10 @@ bool getPhysicalDevice(vkenv_Device device, vkenv_DeviceConfig *config)
     vkGetPhysicalDeviceProperties(device->physical_device, &(device->physical_device_props));
     vkGetPhysicalDeviceMemoryProperties(device->physical_device, &(device->physical_device_memory_props));
     // Find the device queue family indices (we're looking for general purpose, async compute and async transfer queues)
-    findQueueFamilyIndex(device->physical_device, &device->general_queues_family_idx, VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT,
-                         0, config->nb_general_queues);
-    device->async_compute_available =
-        findQueueFamilyIndex(device->physical_device, &device->async_compute_queues_family_idx, VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT,
-                             VK_QUEUE_GRAPHICS_BIT, config->nb_async_compute_queues);
+    findQueueFamilyIndex(device->physical_device, &device->general_queues_family_idx, VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT, 0,
+                         config->nb_general_queues);
+    device->async_compute_available = findQueueFamilyIndex(device->physical_device, &device->async_compute_queues_family_idx, VK_QUEUE_COMPUTE_BIT,
+                                                           VK_QUEUE_GRAPHICS_BIT, config->nb_async_compute_queues);
     device->async_transfer_available = findQueueFamilyIndex(device->physical_device, &device->async_transfer_queues_family_idx, VK_QUEUE_TRANSFER_BIT,
                                                             VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT, config->nb_async_transfer_queues);
 
