@@ -15,7 +15,6 @@ bool vkenv_createSwapchain(vkenv_Device device, vkenv_Swapchain *swapchain_ptr, 
 {
   assert(device != NULL);
   assert(swapchain_ptr != NULL);
-  assert(*swapchain_ptr == NULL); // Provided swapchain should be NULL to avoid overwriting data
   assert(swapchain_pref != NULL);
 
   // Allocate vkenv_Swapchain instance

@@ -83,56 +83,6 @@ bool vkenv_endInstantCommandBuffer(VkDevice device, VkQueue queue, VkCommandPool
 // SHADER
 ////////////////////////////////////////////////////////////////////////
 
-#if defined(ANDROID) || defined(__ANDROID__)
-bool is_asset_access_ok = false;
-AAssetManager *asset_manager = NULL;
-void vkenv_setupAndroidAssetsFileAccess(AAssetManager *android_asset_manager)
-{
-  asset_manager = android_asset_manager;
-  is_asset_access_ok = true;
-}
-
-bool createShaderModuleFromAsset(VkDevice device, const char *shader_asset_file_path, VkShaderModule *shader_module)
-{
-  if (!is_asset_access_ok)
-  {
-    logError(LOG_TAG, "On Android, setupAndroidAssetsFileAccess must be called once before createShaderModuleFromAsset");
-    return false;
-  }
-
-  // Read shader code from file
-  AAsset *f_shader_file = AAssetManager_open(asset_manager, shader_asset_file_path, AASSET_MODE_BUFFER);
-  if (f_shader_file == NULL)
-  {
-    logError(LOG_TAG, "Failed to open shader asset file %s", shader_asset_file_path);
-    return false;
-  }
-  size_t shader_code_size = AAsset_getLength(f_shader_file);
-  char *shader_code = (char *)malloc((shader_code_size + 1) * sizeof(char));
-  memset(shader_code, 0, shader_code_size + 1);
-  AAsset_read(f_shader_file, shader_code, shader_code_size);
-  AAsset_close(f_shader_file);
-
-  VkShaderModuleCreateInfo create_info = {.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-                                          .pNext = NULL,
-                                          .flags = 0,
-                                          .codeSize = (size_t)shader_code_size,
-                                          .pCode = (const uint32_t *)shader_code};
-
-  VkResult vkres = vkCreateShaderModule(device, &create_info, NULL, shader_module);
-  if (vkres != VK_SUCCESS)
-  {
-    logError(LOG_TAG, "Failed to create shader module from asset file %s (vkCreateShaderModule: %s)", shader_asset_file_path,
-             vkenv_getVkResultString(vkres));
-    free(shader_code);
-    return false;
-  }
-
-  free(shader_code);
-  return true;
-}
-#endif
-
 bool createShaderModuleFromFile(VkDevice device, const char *shader_file_path, VkShaderModule *shader_module)
 {
   // Read shader code from file
@@ -196,9 +146,6 @@ bool vkenv_createShaderModule(VkDevice device, const char *shader_file_path, VkS
 {
 #if defined(VKENV_USE_EMBEDDED_SHADERS)
   return createShaderModuleFromEmbeddedShader(device, shader_file_path, shader_module);
-#elif defined(ANDROID) || defined(__ANDROID__)
-  // In Android platforms, shader codes should be managed as assets
-  return createShaderModuleFromAsset(device, shader_file_path, shader_module);
 #else
   return createShaderModuleFromFile(device, shader_file_path, shader_module);
 #endif

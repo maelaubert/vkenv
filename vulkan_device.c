@@ -16,16 +16,24 @@ static VkInstance vulkan_instance = VK_NULL_HANDLE;
 
 bool vkenv_createInstance(vkenv_InstanceConfig *config_ptr)
 {
-  if (vulkan_instance == VK_NULL_HANDLE && vkenv_loadVulkanInstanceCreationFuncs() && createInstance(config_ptr))
+  if (vulkan_instance == VK_NULL_HANDLE)
   {
-    vkenv_loadVulkanAPI(vulkan_instance);
-    return true;
+    if (vkenv_loadVulkanInstanceCreationFuncs() && createInstance(config_ptr))
+    {
+      vkenv_loadVulkanAPI(vulkan_instance);
+      return true;
+    }
+    else
+    {
+      logError(LOG_TAG, "vkenv_createInstance() failure");
+      // Safely destroy Vulkan entities
+      vkenv_destroyInstance();
+      return false;
+    }
   }
   else
   {
-    logError(LOG_TAG, "vkenv_createInstance() failure");
-    // Safely destroy Vulkan entities
-    vkenv_destroyInstance();
+    logError(LOG_TAG, "vkenv_createInstance() failure: two Vulkan instances cannot exist at the same time.");
     return false;
   }
 }
@@ -46,7 +54,6 @@ bool vkenv_createDevice(vkenv_Device *device_ptr, vkenv_DeviceConfig *config_ptr
 {
   assert(vulkan_instance != NULL); // Vulkan instance must be valid
   assert(device_ptr != NULL);
-  assert(*device_ptr == NULL); // Provided device should be NULL to avoid overwriting data
   assert(config_ptr != NULL);
 
   assert(config_ptr->nb_general_queues > 0); // We must always have at least one usable queue

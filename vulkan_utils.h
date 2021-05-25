@@ -3,10 +3,6 @@
 
 #include "vulkan_device.h"
 
-#if defined(ANDROID) || defined(__ANDROID__)
-#include <android/asset_manager.h>
-#endif
-
 #define VK_NULL_SAFE_DELETE(var_name, var_deleter)                                                                                                        \
   {                                                                                                                                                       \
     if (var_name != VK_NULL_HANDLE)                                                                                                                       \
@@ -33,10 +29,6 @@ bool vkenv_endInstantCommandBuffer(VkDevice device, VkQueue queue, VkCommandPool
 ////////////////////////////////////////////////////////////////////////
 #ifdef VKENV_USE_EMBEDDED_SHADERS
 bool __vkenv_get_embedded_shader_code(const char *shader_path, uint32_t *shader_size, const uint8_t **shader_code);
-#endif
-#if defined(ANDROID) || defined(__ANDROID__)
-// Used to provide SPIRV files as APK assets
-void vkenv_setupAndroidAssetsFileAccess(AAssetManager *android_asset_manager);
 #endif
 bool vkenv_createShaderModule(VkDevice device, const char *shader_file_path, VkShaderModule *shader_module);
 
