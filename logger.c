@@ -54,7 +54,7 @@ static void log_debug(const char *tag, const char *format, va_list args_list)
 }
 #endif
 
-static vkenv_LogLevel max_log_level = VKENV_LOG_ERROR;
+static vkenv_LogLevel max_log_level = VKENV_LOG_INFO;
 void vkenv_setLogLevel(vkenv_LogLevel log_level) { max_log_level = log_level; }
 
 void vkenv_log(vkenv_LogLevel log_level, const char *tag, const char *format, ...)

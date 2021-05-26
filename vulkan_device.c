@@ -293,7 +293,15 @@ float getPhysicalDeviceCapabilityScore(VkPhysicalDevice device, uint32_t require
   if (general_queue_available)
   {
     queue_types_multiplier = 1.f + (compute_queue_available ? 1.f : 0.f) + (transfer_queue_available ? 1.f : 0.f);
-    logInfo(LOG_TAG, "\t\t -> %d queue family type(s) available", (int)queue_types_multiplier);
+    logInfo(LOG_TAG, "\t\t -> General-purpose queue family available", (int)queue_types_multiplier);
+    if (compute_queue_available)
+    {
+      logInfo(LOG_TAG, "\t\t -> Support requirements on async-compute queues");
+    }
+    if (transfer_queue_available)
+    {
+      logInfo(LOG_TAG, "\t\t -> Support requirements on async-transfer queues");
+    }
   }
   else
   {
@@ -454,8 +462,14 @@ bool getPhysicalDevice(vkenv_Device device, vkenv_DeviceConfig *config)
     // Print out debug informations about selected device
     logInfo(LOG_TAG, "Selected GPU: %s [device ID=%d][vendor ID=%d]", device->physical_device_props.deviceName, device->physical_device_props.deviceID,
             device->physical_device_props.vendorID);
-    logInfo(LOG_TAG, "GPU async compute support: %d", device->async_compute_available);
-    logInfo(LOG_TAG, "GPU async transfer support: %d", device->async_transfer_available);
+    if (config->nb_async_compute_queues > 0)
+    {
+      logInfo(LOG_TAG, "GPU async compute support: %d", device->async_compute_available);
+    }
+    if (config->nb_async_transfer_queues > 0)
+    {
+      logInfo(LOG_TAG, "GPU async transfer support: %d", device->async_transfer_available);
+    }
   }
 
   return valid_gpu_found;
