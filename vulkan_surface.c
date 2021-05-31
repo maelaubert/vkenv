@@ -6,6 +6,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef VK_USE_PLATFORM_ANDROID_KHR
+#include <android/native_window_jni.h>
+#endif
+
 static const char LOG_TAG[] = "VulkanSurface";
 
 const char *vkenv_getSurfaceExtensionName()
@@ -27,7 +31,7 @@ const char *vkenv_getSurfaceExtensionName()
 
 bool vkenv_createSurface(VkSurfaceKHR *surface_ptr, vkenv_ExternalWindowInfo *window_info_ptr)
 {
-  VkResult surface_creation_res = VK_ERROR_UNKNOWN;
+  VkResult surface_creation_res = VK_INCOMPLETE; // VK_UNKNOWN not available on Android
 #ifdef VK_USE_PLATFORM_ANDROID_KHR
 
   VkAndroidSurfaceCreateInfoKHR surface_create_info = {
