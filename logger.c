@@ -1,8 +1,6 @@
 #include "logger.h"
 
-#if defined(_WIN32)
 #include <stdarg.h>
-#endif
 
 #if defined(ANDROID) || defined(__ANDROID__)
 // If built with Android NDK tools, use the Android logging system

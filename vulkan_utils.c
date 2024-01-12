@@ -97,7 +97,12 @@ bool createShaderModuleFromFile(VkDevice device, const char *shader_file_path, V
   rewind(f_shader_file);
   char *shader_code = (char *)malloc((shader_code_size + 1) * sizeof(char));
   memset(shader_code, 0, shader_code_size + 1);
-  fread(shader_code, shader_code_size, 1, f_shader_file);
+  int nb_read = fread(shader_code, shader_code_size, 1, f_shader_file);
+  if(nb_read != shader_code_size)
+  {
+    logError(LOG_TAG, "Failed to read shader file %s", shader_file_path);
+    return false;
+  }
   fclose(f_shader_file);
 
   VkShaderModuleCreateInfo create_info = {.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
